@@ -1,0 +1,7 @@
+.idea/
+logs
+facepics
+led / optimized / DLL files
+__pycache__/
+.DS_Store
+*$py.class
