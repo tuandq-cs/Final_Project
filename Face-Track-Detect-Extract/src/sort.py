@@ -23,6 +23,11 @@ class Sort:
         self.trackers = []
         self.frame_count = 0
 
+    # Save face images in current state
+    def saveFaceImages(self, rootDir, frameId):
+        for tracker in self.trackers:
+            utils.saveFaceInTracker(rootDir, frameId, tracker)
+
     def update(self, dets, img_size, root_dic, addtional_attribute_list, predict_num):
         """
         Params:
@@ -54,8 +59,7 @@ class Sort:
                     d = matched[np.where(matched[:, 1] == t)[0], 0]
                     trk.update(dets[d, :][0])
                     addtionalAttribute = addtional_attribute_list[d[0]]
-                    trk.face_addtional_attribute.append(addtionalAttribute)
-                    utils.saveMatchedFace(root_dic, trk.id, addtionalAttribute)             
+                    trk.face_addtional_attribute.append(addtionalAttribute)        
 
             # create and initialise new trackers for unmatched detections
             for i in unmatched_dets:

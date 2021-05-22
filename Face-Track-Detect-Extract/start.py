@@ -154,8 +154,7 @@ def main():
                             final_faces = np.array(face_list)
 
                     trackers = tracker.update(final_faces, img_size, directoryName, addtional_attribute_list, detect_interval)
-
-                    c += 1
+                    tracker.saveFaceImages(rootDir=directoryName,frameId=c)
 
                     for d in trackers:
                         if not no_display:
@@ -172,7 +171,7 @@ def main():
                                 cv2.putText(frame, 'ID : %d' % (d[4]), (d[0] - 10, d[1] - 10), cv2.FONT_HERSHEY_SIMPLEX,
                                             0.75,
                                             colours[d[4] % 32, :] * 255, 2)
-                    
+                    c += 1
                     # Write the frame into the file '{}.avi'
                     if isSaveVideos:
                         videoWriter.write(frame)

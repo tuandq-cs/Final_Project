@@ -46,6 +46,19 @@ def saveMatchedFace(rootDir, trackId, addtionalAttribute):
     faceScore = round(score,4)
     fileName = os.path.join(trackDir,str(faceScore) + '.png')
     cv2.imwrite(fileName,cropped)
+
+def saveFaceInTracker(rootDir, frameId, tracker):
+    if not os.path.exists(rootDir):
+        mkdir(rootDir)
+    frameDir = os.path.join(rootDir,str(frameId+1))
+    if not os.path.exists(frameDir):
+        mkdir(frameDir)
+    assert len(tracker.face_addtional_attribute) > 0, 'There must be 1 face in track'
+    cropped, score, dist_rate, high_ratio_variance, width_rate = tracker.face_addtional_attribute[-1]
+    faceScore = round(score,4)
+    fileName = f'{tracker.id}_{faceScore}.png'
+    fileName = os.path.join(frameDir,fileName)
+    cv2.imwrite(fileName,cropped)
     
 
 class Logger:
