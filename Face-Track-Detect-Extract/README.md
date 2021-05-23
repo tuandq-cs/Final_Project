@@ -21,7 +21,7 @@ This project can **detect** , **track** and **extract** the **optimal** face in 
 
 * Create conda environment with Python 3.6:
   ```
-  conda create -n myenv python=3.6 pip pip3
+  conda create -n myenv python=3.6 pip
   conda activate myenv
   ```
 * Install packages:
@@ -75,6 +75,12 @@ python3 start.py --face_landmarks
   ```
   python3 start.py --save_videos
   ```
+
+🚀️ **IMPORTANT:**🚀️  If your are gonna run this source in server. Please make sure that add the argument **--no_display**
+
+```
+python3 start.py --no_display
+```
 
 ## What can this project do?
 
