@@ -125,7 +125,7 @@ def main():
                 outs = net.forward(get_outputs_names(net))
                 # Remove the bounding boxes with low confidence
                 faces = post_process(frame, outs, CONF_THRESHOLD, NMS_THRESHOLD)
-                logger.info("MTCNN detect face cost time : {} s".format(
+                logger.info("Yolov3 detect face cost time : {} s".format(
                     round(time() - mtcnn_starttime, 3)))  # mtcnn detect ,slow
                 face_sums = faces.shape[0]
                 if face_sums > 0:
