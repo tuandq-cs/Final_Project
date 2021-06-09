@@ -191,10 +191,11 @@ def main():
                 videoWriter.write(frame)
 
             if not no_display:
-                showFrame = cv2.resize(frame, (0, 0), fx=show_rate, fy=show_rate)
-                cv2.imshow("Frame", showFrame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+                pass
+                # showFrame = cv2.resize(frame, (0, 0), fx=show_rate, fy=show_rate)
+                # cv2.imshow("Frame", showFrame)
+                # if cv2.waitKey(1) & 0xFF == ord('q'):
+                #     break
 
         logger.info(f'Total compute time: {time() - start}')
         logger.info('Prepare to release video ...')
