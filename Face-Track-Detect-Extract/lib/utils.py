@@ -1,9 +1,8 @@
 import logging
 import os
 import time
-import uuid
 from operator import itemgetter
-
+import numpy as np
 import cv2
 import project_root_dir
 
@@ -47,6 +46,7 @@ def saveMatchedFace(rootDir, trackId, addtionalAttribute):
     fileName = os.path.join(trackDir,str(faceScore) + '.png')
     cv2.imwrite(fileName,cropped)
 
+
 def saveFaceInTracker(rootDir, frameId, tracker):
     if not os.path.exists(rootDir):
         mkdir(rootDir)
@@ -54,12 +54,46 @@ def saveFaceInTracker(rootDir, frameId, tracker):
     if not os.path.exists(frameDir):
         mkdir(frameDir)
     assert len(tracker.face_addtional_attribute) > 0, 'There must be 1 face in track'
-    cropped, score, dist_rate, high_ratio_variance, width_rate = tracker.face_addtional_attribute[-1]
+    cropped, score = tracker.face_addtional_attribute[-1]
     faceScore = round(score,4)
     fileName = f'{tracker.id}_{faceScore}.png'
     fileName = os.path.join(frameDir,fileName)
     cv2.imwrite(fileName,cropped)
     
+
+def detect_blur_fft(image, size = 60, thresh = 10):
+  # NOTE: size: The size of the radius around the centerpoint of
+  #             the image for which we will zero out the FFT shift
+
+
+  # grab the dimensions of the image and use the dimensions to
+	# derive the center  (x, y)-coordinates
+  (h, w) = image.shape
+  (cX, cY) = (int(w / 2.0), int(h / 2.0))
+
+  # compute the FFT to find the frequency transform, then shift
+	# the zero frequency component (i.e., DC component located at
+	# the top-left corner) to the center where it will be more
+	# easy to analyze
+  fft = np.fft.fft2(image)
+  fftShift= np.fft.fftshift(fft)
+
+  # zero-out the center of the FFT shift (i.e., remove low
+	# frequencies), apply the inverse shift such that the DC
+	# component once again becomes the top-left, and then apply
+	# the inverse FFT
+  fftShift[cY - size:cY + size, cX - size:cX + size] = 0
+  fftShift = np.fft.ifftshift(fftShift)
+  recon = np.fft.ifft2(fftShift)
+ 
+  # compute the magnitude spectrum of the reconstructed image,
+	# then compute the mean of the magnitude values
+  magnitude = 20 * np.log(np.abs(recon))
+  mean = np.mean(magnitude)
+ 
+  # the image will be considered "blurry" if the mean value of the
+	# magnitudes is less than the threshold value
+  return mean, mean <= thresh
 
 class Logger:
 
