@@ -5,6 +5,8 @@ from operator import itemgetter
 import numpy as np
 import cv2
 import project_root_dir
+from keras.preprocessing.image import img_to_array
+from .face_utils import eye_open
 
 log_file_root_path = os.path.join(project_root_dir.project_dir, 'logs')
 log_time = time.strftime('%Y_%m_%d_%H_%M', time.localtime(time.time()))
@@ -60,6 +62,50 @@ def saveFaceInTracker(rootDir, frameId, tracker):
     fileName = os.path.join(frameDir,fileName)
     cv2.imwrite(fileName,cropped)
     
+def compute_smile_score(grayscale, smile_model):
+    def extractROI(image,size):
+        roi = cv2.resize(image, (size, size))
+        roi = roi.astype("float") / 255.0
+        roi = img_to_array(roi)
+        return np.expand_dims(roi, axis=0)
+    roi = extractROI(grayscale, size=28)
+    (no_smile, smile) = smile_model.predict(roi)[0]
+    return smile
+
+def extract_infomation(tracker_obj, frame_id, smile_model, shape_predictor, blur_thresh, eye_thresh):
+    frame_info = {
+        'frame_id': frame_id,
+        'avg_score': 0,
+        'faces': {}
+    }
+    total_score = 0
+    for tracker in tracker_obj.trackers:
+        assert len(tracker.face_addtional_attribute) > 0, 'There must be 1 face in track'
+        cropped, conf_score = tracker.face_addtional_attribute[-1]
+        cropped_gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+        w,h = cropped_gray.shape
+        _, is_blur = detect_blur_fft(cropped_gray, thresh=blur_thresh)
+        is_open_eye = eye_open(cropped_gray,(0,0,w,h),shape_predictor, eye_thresh)
+        face_score = 0
+        if not is_blur and is_open_eye:
+            face_score = compute_smile_score(cropped_gray, smile_model)
+            total_score += face_score
+        frame_info['faces'][tracker.id] = {
+            'id': tracker.id,
+            'frame_id': frame_id,
+            'face_score': face_score,
+            'face_image': cropped,
+            'bbox': tracker.get_state().astype(np.int32)
+        }
+    frame_info['avg_score'] = total_score / len(tracker_obj.trackers)
+    return frame_info
+
+def extract_index_nparray(nparray):
+    index = None
+    for num in nparray[0]:
+        index = num
+        break
+    return index
 
 def detect_blur_fft(image, size = 60, thresh = 10):
   # NOTE: size: The size of the radius around the centerpoint of
