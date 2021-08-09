@@ -22,6 +22,8 @@ from keras.models import load_model
 logger = Logger()
 ROOT_DIR = os.path.dirname(os.path.realpath(__file__))
 BASE_INFER_DIR = 'inferences'
+FACE_SCORE_WEIGHT = 1
+DICE_SIMILARITY_SCORE = 0.5
 
 def getFileName(filePath):
     filePath = os.path.splitext(filePath)[0]
@@ -118,7 +120,8 @@ def main():
         videoWriter = None
         if isSaveVideos:
             videoWriter = initVideoWriter(cam, scale_rate, filename, output_videos_dir)
-
+        
+        list_frame_info = []
         while True:
             final_faces = []
             addtional_attribute_list = []
@@ -190,35 +193,33 @@ def main():
             trackers = tracker.update(final_faces, img_size, directoryName, addtional_attribute_list, detect_interval)
             tracker.saveFaceImages(rootDir=directoryName,frameId=frame_id)
 
-            frame_info = extract_infomation(tracker, frame_id, smile_model, shape_predictor, BLUR_THRESH, EYE_THRESH)
-            # for d in trackers:
-            #     face_id = int(d[4]) - 1
-            #     frame_info['faces'][face_id]['bbox'] = d[:4]
+            frame_info = extract_infomation(tracker, frame_id, frame, smile_model, shape_predictor, BLUR_THRESH, EYE_THRESH)
+            list_frame_info.append(frame_info)
             if best_frame_info.get('frame_id'):
-                for face_id in frame_info['faces']:
-                    if not best_frame_info['faces'].get(face_id) or frame_info['faces'][face_id]['face_score'] > best_face_info[face_id]['face_score']:
-                        best_face_info[face_id] = frame_info['faces'][face_id]
+                # for face_id in frame_info['faces']:
+                #     if not best_frame_info['faces'].get(face_id) or frame_info['faces'][face_id]['face_score'] > best_face_info[face_id]['face_score']:
+                #         best_face_info[face_id] = frame_info['faces'][face_id]
                 if frame_info['avg_score'] > best_frame_info['avg_score'] and len(frame_info['faces']) >= len(best_frame_info['faces']):
                     best_frame_info = frame_info
             else:
                 best_frame_info = frame_info
-                best_face_info = frame_info['faces']
+                # best_face_info = frame_info['faces']
 
-            for d in trackers:
-                if not no_display:
-                    d = d.astype(np.int32)
-                    cv2.rectangle(frame, (d[0], d[1]), (d[2], d[3]), colours[d[4] % 32, :] * 255, 3)
-                    if final_faces != []:
-                        cv2.putText(frame, 'ID : %d  DETECT' % (d[4]), (d[0] - 10, d[1] - 10),
-                                    cv2.FONT_HERSHEY_SIMPLEX,
-                                    0.75,
-                                    colours[d[4] % 32, :] * 255, 2)
-                        cv2.putText(frame, 'DETECTOR', (5, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
-                                    (1, 1, 1), 2)
-                    else:
-                        cv2.putText(frame, 'ID : %d' % (d[4]), (d[0] - 10, d[1] - 10), cv2.FONT_HERSHEY_SIMPLEX,
-                                    0.75,
-                                    colours[d[4] % 32, :] * 255, 2)
+            # for d in trackers:
+            #     if not no_display:
+            #         d = d.astype(np.int32)
+            #         cv2.rectangle(frame, (d[0], d[1]), (d[2], d[3]), colours[d[4] % 32, :] * 255, 3)
+            #         if final_faces != []:
+            #             cv2.putText(frame, 'ID : %d  DETECT' % (d[4]), (d[0] - 10, d[1] - 10),
+            #                         cv2.FONT_HERSHEY_SIMPLEX,
+            #                         0.75,
+            #                         colours[d[4] % 32, :] * 255, 2)
+            #             cv2.putText(frame, 'DETECTOR', (5, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+            #                         (1, 1, 1), 2)
+            #         else:
+            #             cv2.putText(frame, 'ID : %d' % (d[4]), (d[0] - 10, d[1] - 10), cv2.FONT_HERSHEY_SIMPLEX,
+            #                         0.75,
+            #                         colours[d[4] % 32, :] * 255, 2)
             c += 1
             # Write the frame into the file '{}.avi'
             if isSaveVideos:
@@ -239,20 +240,69 @@ def main():
 
         # Post process
         print(f'Key frame at frame {best_frame_info["frame_id"]}')
-        for face_id in best_face_info.keys():
-            key_frame_score = 0
-            if best_frame_info["faces"].get(face_id):
-                key_frame_score = best_frame_info["faces"][face_id]["face_score"]
-            print(f'Id: {face_id}, Face score of key frame: {key_frame_score}, Best face score: {best_face_info[face_id]["face_score"]} at frame {best_face_info[face_id]["frame_id"]}')
-        # logger.info(json.dumps(best_frame_info))
-        # logger.info(json.dumps(best_face_info))
-        key_frame_cam = cv2.VideoCapture(video_name)
-        key_frame_cam.set(cv2.CAP_PROP_POS_FRAMES,best_frame_info['frame_id'])
-        _, key_frame =key_frame_cam.read()
+        # for face_id in best_face_info.keys():
+        #     key_frame_score = 0
+        #     if best_frame_info["faces"].get(face_id):
+        #         key_frame_score = best_frame_info["faces"][face_id]["face_score"]
+        #     print(f'Id: {face_id}, Face score of key frame: {key_frame_score}, Best face score: {best_face_info[face_id]["face_score"]} at frame {best_face_info[face_id]["frame_id"]}')
+        # key_frame_cam = cv2.VideoCapture(video_name)
+        # key_frame_cam.set(cv2.CAP_PROP_POS_FRAMES,best_frame_info['frame_id'])
+        # _, key_frame =key_frame_cam.read()
+
+        key_frame = best_frame_info['frame_image']
         key_frame_gray = cv2.cvtColor(key_frame, cv2.COLOR_BGR2GRAY)
         cv2.imwrite(os.path.join(inference_dir,'key_frame.png'), key_frame)
 
         for face_id in best_frame_info['faces']:
+            best_frame_face_mask = np.zeros_like(key_frame_gray)
+            best_frame_face_info = best_frame_info['faces'][face_id]
+            best_frame_face_bbox = best_frame_face_info['bbox']
+            best_frame_face_landmarks = shape_predictor(key_frame, dlib.rectangle(best_frame_face_bbox[0], best_frame_face_bbox[1], best_frame_face_bbox[2], best_frame_face_bbox[3]))
+            best_frame_face_landmarks_points = []
+            for point in best_frame_face_landmarks.parts():
+                best_frame_face_landmarks_points.append((point.x, point.y))
+            best_frame_face_points = np.array(best_frame_face_landmarks_points, dtype=np.int32)
+            best_frame_face_convexhull = cv2.convexHull(best_frame_face_points)
+            cv2.fillConvexPoly(best_frame_face_mask, best_frame_face_convexhull, 255)
+            # cv2.imshow("Best_frame_face_mask", best_frame_face_mask)
+            # cv2.waitKey(0)
+            for frame_info in list_frame_info:
+                # if frame_info['frame_id'] == best_frame_face_info['frame_id']:
+                #     continue
+                face_info = frame_info['faces'].get(face_id)
+                if not face_info:
+                    continue
+                face_bbox = face_info['bbox']
+                frame_image = frame_info['frame_image']
+                frame_image_gray = cv2.cvtColor(frame_image, cv2.COLOR_BGR2GRAY)
+                face_mask = np.zeros_like(frame_image_gray)
+                face_landmarks = shape_predictor(frame_image, dlib.rectangle(face_bbox[0], face_bbox[1], face_bbox[2], face_bbox[3]))
+                face_landmarks_points = []
+                for point in face_landmarks.parts():
+                    face_landmarks_points.append((point.x, point.y)) 
+                face_points = np.array(face_landmarks_points, dtype=np.int32)
+                face_convexhull = cv2.convexHull(face_points)
+                cv2.fillConvexPoly(face_mask, face_convexhull, 255)
+                # cv2.imshow("Face_mask", face_mask)
+                # cv2.waitKey(0)
+                dice_similarity_score = np.sum(best_frame_face_mask[face_mask == 255]) * 2.0 / (np.sum(best_frame_face_mask) + np.sum(face_mask))
+                face_score = face_info['face_score']
+                total_score = (FACE_SCORE_WEIGHT * face_score + DICE_SIMILARITY_SCORE * dice_similarity_score) / (FACE_SCORE_WEIGHT + DICE_SIMILARITY_SCORE)
+                if (best_face_info.get(face_id) and total_score > best_face_info[face_id]['total_score']) or not best_face_info.get(face_id):
+                    best_face_info[face_id] = face_info
+                    best_face_info[face_id]['total_score'] = total_score
+                    best_face_info[face_id]['frame_image'] = frame_image                        
+        
+        for face_id in best_face_info.keys():
+
+            if best_frame_info["faces"].get(face_id):
+                print(f'Id: {face_id}, Best face score: {best_face_info[face_id]["total_score"]} at frame {best_face_info[face_id]["frame_id"]}')            
+                face_id_dir = os.path.join(inference_dir, str(face_id))
+                mkdir(face_id_dir)
+                cv2.imwrite(os.path.join(face_id_dir, 'target.png'), best_frame_info["faces"][face_id]["face_image"])
+                cv2.imwrite(os.path.join(face_id_dir, 'source.png'), best_face_info[face_id]["face_image"])
+
+        for face_id in best_frame_info['faces']: 
             new_key_frame = np.zeros_like(key_frame)
             # Get landmarks points of source face
             target_bbox = best_frame_info['faces'][face_id]['bbox']
@@ -300,9 +350,10 @@ def main():
 
             # Get source image
             source_face_info = best_face_info[face_id]
-            face_cam = cv2.VideoCapture(video_name)
-            face_cam.set(cv2.CAP_PROP_POS_FRAMES,source_face_info['frame_id'])
-            _, source_image = face_cam.read()
+            # face_cam = cv2.VideoCapture(video_name)
+            # face_cam.set(cv2.CAP_PROP_POS_FRAMES,source_face_info['frame_id'])
+            # _, source_image = face_cam.read()
+            source_image = source_face_info['frame_image']
             # Get landmarks points of source face
             source_bbox = source_face_info['bbox']
             source_landmarks = shape_predictor(source_image, dlib.rectangle(source_bbox[0], source_bbox[1], source_bbox[2], source_bbox[3]))

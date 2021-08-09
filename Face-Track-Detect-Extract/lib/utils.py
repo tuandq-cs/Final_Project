@@ -72,9 +72,10 @@ def compute_smile_score(grayscale, smile_model):
     (no_smile, smile) = smile_model.predict(roi)[0]
     return smile
 
-def extract_infomation(tracker_obj, frame_id, smile_model, shape_predictor, blur_thresh, eye_thresh):
+def extract_infomation(tracker_obj, frame_id, frame_image, smile_model, shape_predictor, blur_thresh, eye_thresh):
     frame_info = {
         'frame_id': frame_id,
+        'frame_image': frame_image,
         'avg_score': 0,
         'faces': {}
     }
