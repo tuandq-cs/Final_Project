@@ -23,7 +23,7 @@ logger = Logger()
 ROOT_DIR = os.path.dirname(os.path.realpath(__file__))
 BASE_INFER_DIR = 'inferences'
 FACE_SCORE_WEIGHT = 1
-DICE_SIMILARITY_SCORE = 0.5
+DICE_SIMILARITY_WEIGHT = 0.5
 
 def getFileName(filePath):
     filePath = os.path.splitext(filePath)[0]
@@ -263,6 +263,8 @@ def main():
                 best_frame_face_landmarks_points.append((point.x, point.y))
             best_frame_face_points = np.array(best_frame_face_landmarks_points, dtype=np.int32)
             best_frame_face_convexhull = cv2.convexHull(best_frame_face_points)
+            best_frame_face_info["landmarks"] = best_frame_face_points
+            best_frame_face_info["convexhull"] = best_frame_face_convexhull
             cv2.fillConvexPoly(best_frame_face_mask, best_frame_face_convexhull, 255)
             # cv2.imshow("Best_frame_face_mask", best_frame_face_mask)
             # cv2.waitKey(0)
@@ -287,20 +289,45 @@ def main():
                 # cv2.waitKey(0)
                 dice_similarity_score = np.sum(best_frame_face_mask[face_mask == 255]) * 2.0 / (np.sum(best_frame_face_mask) + np.sum(face_mask))
                 face_score = face_info['face_score']
-                total_score = (FACE_SCORE_WEIGHT * face_score + DICE_SIMILARITY_SCORE * dice_similarity_score) / (FACE_SCORE_WEIGHT + DICE_SIMILARITY_SCORE)
+                if dice_similarity_score < 0.9:
+                    continue
+                total_score = (FACE_SCORE_WEIGHT * face_score + DICE_SIMILARITY_WEIGHT * dice_similarity_score) / (FACE_SCORE_WEIGHT + DICE_SIMILARITY_WEIGHT)
+                total_score = face_score
                 if (best_face_info.get(face_id) and total_score > best_face_info[face_id]['total_score']) or not best_face_info.get(face_id):
                     best_face_info[face_id] = face_info
                     best_face_info[face_id]['total_score'] = total_score
-                    best_face_info[face_id]['frame_image'] = frame_image                        
+                    best_face_info[face_id]['frame_image'] = frame_image
+                    best_face_info[face_id]['convexhull'] = face_convexhull                        
+                    best_face_info[face_id]['landmarks'] = face_points                        
         
         for face_id in best_face_info.keys():
-
             if best_frame_info["faces"].get(face_id):
                 print(f'Id: {face_id}, Best face score: {best_face_info[face_id]["total_score"]} at frame {best_face_info[face_id]["frame_id"]}')            
                 face_id_dir = os.path.join(inference_dir, str(face_id))
                 mkdir(face_id_dir)
-                cv2.imwrite(os.path.join(face_id_dir, 'target.png'), best_frame_info["faces"][face_id]["face_image"])
-                cv2.imwrite(os.path.join(face_id_dir, 'source.png'), best_face_info[face_id]["face_image"])
+                # Get target face with convexhull
+                key_frame_copy = np.copy(key_frame)
+                target_convexhull = best_frame_info["faces"][face_id]['convexhull']
+                target_bbox = best_frame_info['faces'][face_id]['bbox']
+                l, t, r, b = target_bbox
+                cv2.imwrite(os.path.join(face_id_dir, 'target.png'), key_frame_copy[t:b, l:r])
+                cv2.polylines(key_frame_copy, [target_convexhull], True, (255,0,0), 3)
+                cv2.imwrite(os.path.join(face_id_dir, 'target_convexhull.png'), key_frame_copy[t:b, l:r])
+                for x, y in best_frame_info["faces"][face_id]['landmarks']:
+                    cv2.circle(key_frame_copy, (x, y), 3, (0,0,255), -1)
+                cv2.imwrite(os.path.join(face_id_dir, 'target_convexhull_with_landmarks.png'), key_frame_copy[t:b, l:r])
+                
+                # Get source face with convexhull
+                source_image_copy = np.copy(best_face_info[face_id]['frame_image'])
+                source_convexhull = best_face_info[face_id]['convexhull']
+                source_bbox = best_face_info[face_id]['bbox']
+                l, t, r, b = source_bbox
+                cv2.imwrite(os.path.join(face_id_dir, 'source.png'), source_image_copy[t:b, l:r])
+                cv2.polylines(source_image_copy, [source_convexhull], True, (255,0,0), 3)
+                cv2.imwrite(os.path.join(face_id_dir, 'source_convexhull.png'), source_image_copy[t:b, l:r])
+                for x, y in best_face_info[face_id]['landmarks']:
+                    cv2.circle(source_image_copy, (x, y), 3, (0,0,255), -1)
+                cv2.imwrite(os.path.join(face_id_dir, 'source_convexhull_with_landmarks.png'), source_image_copy[t:b, l:r])
 
         for face_id in best_frame_info['faces']: 
             new_key_frame = np.zeros_like(key_frame)
@@ -444,8 +471,8 @@ def main():
             # cv2.imwrite('test.png', test)
             # cv2.imshow('Test', test)
             # cv2.waitKey(0)
-        cv2.imshow('Result', key_frame)
-        cv2.waitKey(0)
+        # cv2.imshow('Result', key_frame)
+        # cv2.waitKey(0)
         cv2.imwrite(os.path.join(inference_dir,'result.png'), key_frame)
 
 def parse_args():
